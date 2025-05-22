@@ -1,9 +1,13 @@
 from flask import Flask, jsonify
 from flask_cors import CORS  
-import csv
+import csv,os
 
-app = Flask(__name__)
+app = Flask(__name__,static_folder="build")
 CORS(app) 
+
+@app.route('/')
+def serve_react_app():
+    return send_from_directory(app.static_folder, 'index.html')
 
 def parse_csv(filepath):
     data = []
