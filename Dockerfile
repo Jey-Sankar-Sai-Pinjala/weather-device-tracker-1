@@ -1,25 +1,35 @@
-# For more information, please refer to https://aka.ms/vscode-docker-python
-FROM python:3-slim
+# Stage 1: Build React app
+FROM node:20-alpine as frontend-build
 
-EXPOSE 8000
+WORKDIR /app/frontend
 
-# Keeps Python from generating .pyc files in the container
-ENV PYTHONDONTWRITEBYTECODE=1
+# Install dependencies and build React for production
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
 
-# Turns off buffering for easier container logging
-ENV PYTHONUNBUFFERED=1
+COPY frontend/ ./
+RUN npm run build
 
-# Install pip requirements
-COPY requirements.txt .
-RUN python -m pip install -r requirements.txt
+# Stage 2: Build Flask backend and serve React build files
+FROM python:3.11-slim
 
-WORKDIR /app
-COPY . /app
+WORKDIR /weather-device-tracker/backend
 
-# Creates a non-root user with an explicit UID and adds permission to access the /app folder
-# For more info, please refer to https://aka.ms/vscode-docker-python-configure-containers
-RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser /app
-USER appuser
+# Install Python dependencies
+COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-# During debugging, this entry point will be overridden. For more information, please refer to https://aka.ms/vscode-docker-python-debug
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "-k", "uvicorn.workers.UvicornWorker", "backend.app:app"]
+# Copy backend source code
+COPY backend/ ./
+
+# Copy React build from frontend-build stage
+COPY --from=frontend-build /app/frontend/build ./static
+
+# Expose port Flask will run on
+EXPOSE 5000
+
+# Set environment variable for Flask to know static files path
+ENV STATIC_FOLDER=static
+
+# Run the Flask app (assumes your main file is app.py)
+CMD ["python", "app.py"]
