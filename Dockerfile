@@ -1,35 +1,27 @@
-# Stage 1: Build React app
-FROM node:20-alpine as frontend-build
-
+# Step 1: Build React frontend
+FROM node:20 AS frontend-build
 WORKDIR /app/frontend
+COPY frontend/ .
+RUN npm install && npm run build
 
-# Install dependencies and build React for production
-COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci
-
-COPY frontend/ ./
-RUN npm run build
-
-# Stage 2: Build Flask backend and serve React build files
+# Step 2: Set up Python Flask backend
 FROM python:3.11-slim
+WORKDIR /app
 
-WORKDIR /weather-device-tracker/backend
-
-# Install Python dependencies
-COPY backend/requirements.txt ./
+# Install dependencies
+COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend source code
-COPY backend/ ./
+# Copy backend and frontend build
+COPY backend/ ./backend/
+COPY --from=frontend-build /app/frontend/build/ ./backend/build/
 
-# Copy React build from frontend-build stage
-COPY --from=frontend-build /app/frontend/build ./static
+# Set working directory to backend
+WORKDIR /app/backend
 
-# Expose port Flask will run on
+# Set environment port and expose
+ENV PORT=5000
 EXPOSE 5000
 
-# Set environment variable for Flask to know static files path
-ENV STATIC_FOLDER=static
-
-# Run the Flask app (assumes your main file is app.py)
-CMD ["python", "app.py"]
+# Run app
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:app"]
