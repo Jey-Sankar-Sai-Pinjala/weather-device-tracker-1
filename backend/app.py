@@ -5,9 +5,6 @@ import csv,os
 app = Flask(__name__,static_folder="build",static_url_path="")
 CORS(app) 
 
-@app.route('/')
-def index():
-    return send_from_directory(app.static_folder, 'index.html')
 
 def parse_csv(filepath):
     data = []
@@ -29,9 +26,7 @@ def parse_csv(filepath):
 def get_positions():
     return jsonify(parse_csv('positions.csv'))
 
-@app.route("/api/hello")
-def hello():
-    return jsonify(message="Hello from Flask!")
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
