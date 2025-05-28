@@ -1,13 +1,15 @@
-from flask import Flask, jsonify,send_from_directory
-from flask_cors import CORS  
-from waitress import serve
-import csv,os
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+import csv
+import os
 
-app = Flask(__name__,static_folder="build",static_url_path="")
-CORS(app) 
+app = Flask(__name__)
+CORS(app)
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_FILE = os.path.join(BASE_DIR, 'positions.csv')
 
-def parse_csv(filepath):
+def parse_csv(filepath=CSV_FILE):
     data = []
     with open(filepath, newline='') as csvfile:
         reader = csv.DictReader(csvfile)
@@ -25,10 +27,14 @@ def parse_csv(filepath):
 
 @app.route('/api/positions', methods=['GET'])
 def get_positions():
-    return jsonify(parse_csv('positions.csv'))
+    requested_date = request.args.get("date")
+    all_data = parse_csv()
 
+    if requested_date:
+        filtered = [row for row in all_data if row["fixTime"].startswith(requested_date)]
+        return jsonify(filtered)
 
+    return jsonify(all_data)
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
+if __name__ == '__main__':
+    app.run(debug=True)

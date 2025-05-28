@@ -8,7 +8,6 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
 delete L.Icon.Default.prototype._getIconUrl;
-
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x,
   iconUrl: markerIcon,
@@ -17,41 +16,35 @@ L.Icon.Default.mergeOptions({
 
 export default function App() {
   const [positions, setPositions] = useState([]);
-  const [selected, setSelected] = useState(null);
   const [uniqueDays, setUniqueDays] = useState([]);
   const [currentDay, setCurrentDay] = useState(null);
+  const [selected, setSelected] = useState(null);
 
+  // Get all days initially
   useEffect(() => {
     axios.get('http://localhost:5000/api/positions')
       .then(response => {
         const data = response.data;
-        setPositions(data);
-
         const days = [...new Set(data.map(p => p.fixTime.split(' ')[0]))];
         setUniqueDays(days);
-        setCurrentDay(days[0]); // Set to first day
+        if (days.length > 0) {
+          setCurrentDay(days[0]);
+        }
       })
-      .catch(error => console.error('Error fetching data:', error));
+      .catch(error => console.error('Error fetching days:', error));
   }, []);
 
-  // Animate through days (optional)
-  /*
+  // Fetch only for selected day
   useEffect(() => {
-    let interval;
-    if (uniqueDays.length > 0) {
-      interval = setInterval(() => {
-        setCurrentDay(prev => {
-          const idx = uniqueDays.indexOf(prev);
-          return uniqueDays[(idx + 1) % uniqueDays.length];
-        });
-      }, 2000); // every 2 seconds
-    }
-    return () => clearInterval(interval);
-  }, [uniqueDays]);
-  */
+    if (!currentDay) return;
+    axios.get(`http://localhost:5000/api/positions?date=${currentDay}`)
+      .then(response => {
+        setPositions(response.data);
+      })
+      .catch(error => console.error('Error fetching day positions:', error));
+  }, [currentDay]);
 
-  const filteredPositions = positions.filter(p => p.fixTime.startsWith(currentDay));
-  const polyline = filteredPositions.map(p => [p.lat, p.lon]);
+  const polyline = positions.map(p => [p.lat, p.lon]);
 
   return (
     <div style={{ display: 'flex', gap: '2rem', padding: '2rem' }}>
@@ -71,7 +64,7 @@ export default function App() {
             attribution="&copy; OpenStreetMap contributors"
           />
           <Polyline positions={polyline} color="red" />
-          {filteredPositions.map((pos, index) => (
+          {positions.map((pos, index) => (
             <Marker key={index} position={[pos.lat, pos.lon]} eventHandlers={{ click: () => setSelected(pos) }}>
               <Popup>
                 <div>
