@@ -21,32 +21,44 @@ def parse_csv(filepath=CSV_FILE):
                     "obsTime": row["ObservationTime"],
                     "lat": float(row["Latitude"]),
                     "lon": float(row["Longitude"]),
+                    "barometricPressure": row.get("BarometricPressure"),
+                    "seaSurfaceTemperature": row.get("SeaSurfaceTemperature"),
+                    "submergence": row.get("Submergence"),
                 })
             except Exception as e:
                 print(f"Skipping row due to error: {e}")
     return data
 
-# @app.route('/api/timeseries', methods=['GET'])
-# def get_timeseries():
-#     lat = float(request.args.get("lat"))
-#     lon = float(request.args.get("lon"))
+@app.route('/api/timeseries', methods=['GET'])
+def get_timeseries():
+    data = parse_csv('positions.csv')
 
-#     data = parse_csv('positions.csv')
-#     series = [row for row in data if abs(row["lat"] - lat) < 0.0001 and abs(row["lon"] - lon) < 0.0001]
+    # Sort by ObservationTime
+    series_sorted = sorted(data, key=lambda x: datetime.strptime(x["obsTime"], "%d-%m-%Y %H:%M:%S"))
 
-#     return jsonify(series)
+    result = []
+    for row in series_sorted:
+        try:
+            dt = datetime.strptime(row["obsTime"], "%d-%m-%Y %H:%M:%S") #print(row["obsTime"])
+            iso_time = dt.isoformat()  # '2024-01-30T14:30:00'#print(iso_time)
+            pressure = float(row["barometricPressure"]) if row["barometricPressure"] not in ["", "NaN", None] else None
+            if pressure is not None:
+                result.append({
+                    "time": iso_time,
+                    "pressure": pressure,
+                    "seaSurfaceTemperature": float(row["seaSurfaceTemperature"]) if row.get("seaSurfaceTemperature") not in ["", "NaN", None] else None,
+                    "submergence": float(row["submergence"]) if row.get("submergence") not in ["", "NaN", None] else None
+                })
+        except Exception as e:
+            print(f"Skipping row due to error: {e}")
+    
+    return jsonify(result)
 
 
 
 @app.route('/api/positions', methods=['GET'])
 def get_positions():
-    month_param = request.args.get("month")  # format: MM-YYYY
     all_data = parse_csv()
-
-    if month_param:
-        filtered = [row for row in all_data if row["fixTime"][6:9] == month_param]
-        return jsonify(filtered)
-
     return jsonify(all_data)
 
 if __name__ == '__main__':
